@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Any
+
 
 @dataclass
 class RAGModelConfig:
@@ -10,8 +12,7 @@ class RAGModelConfig:
 class DocumentChunk:
     id: str
     content: str
-    source: str
-    #metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any]
     score: float | None = None
 
 @dataclass
@@ -32,5 +33,13 @@ class BaseRetriever(ABC):
 
 class BaseChatModel(ABC):
     @abstractmethod
+    async def connect(self) -> None:
+        ...
+
+    @abstractmethod
+    async def close(self) -> None:
+        ...
+
+    @abstractmethod
     async def generate(self, prompt: str) -> str:
-        raise NotImplementedError
+        ...

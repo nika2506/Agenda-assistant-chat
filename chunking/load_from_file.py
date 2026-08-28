@@ -2,8 +2,18 @@ import json
 from pathlib import Path
 from typing import Any, Tuple
 import os
+from dataclasses import dataclass
 
-def load_agenda_chunks(file_path: str | Path) -> Tuple[list[str], list[str], list[dict[str, Any]]]:
+
+@dataclass
+class Source:
+    id: str
+    label: str
+    content: str
+    keywords: set[str]
+
+
+def load_agenda_chunks(file_path: str | Path) -> list[dict[str, Any]]:
     with Path(file_path).open(encoding="utf-8") as file:
         data = json.load(file)
 
@@ -76,7 +86,7 @@ def load_agenda_chunks(file_path: str | Path) -> Tuple[list[str], list[str], lis
             },
         })
 
-    texts = [chunk["text"] for chunk in chunks]
-    metadatas = [chunk["metadata"] for chunk in chunks]
-    ids = [chunk["id"] for chunk in chunks]
-    return ids, texts, metadatas
+    #texts = [chunk["text"] for chunk in chunks]
+    #metadatas = [chunk["metadata"] for chunk in chunks]
+    #ids = [chunk["id"] for chunk in chunks]
+    return chunks

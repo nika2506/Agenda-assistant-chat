@@ -1,5 +1,4 @@
 from rag.base import BaseChatModel
-import requests
 import httpx
 
 
@@ -38,8 +37,11 @@ class LlamaLocalChatModel(BaseChatModel):
                 },
             )
             response.raise_for_status()
-            data = response.json()
-            return data.get("response", "").strip()
-
-        except httpx.HTTPError as e:
-            return f"Error: {e}"
+            answer = response.json().get("response", "").strip()
+            if not answer:
+                raise RuntimeError("The local model returned an empty response.")
+            return answer
+        except httpx.HTTPError as exc:
+            raise RuntimeError(
+                "Could not reach the local Ollama model. Start Ollama and pull the configured model."
+            ) from exc

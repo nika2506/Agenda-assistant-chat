@@ -1,25 +1,67 @@
 from rag.base import BaseRetriever, DocumentChunk
 from vectorstores.chroma import ChromaBackend
+from pathlib import Path
+from embeddings.local import LocalOllamaEmbeddingFunction
+from chunking.load_from_file import load_agenda_chunks
+from typing import Any
 
-class VectorStoreRetriever(BaseRetriever):
-    def __init__(self, vector_store: ChromaBackend):
-        self.vector_store = vector_store
+
+class InMemoryRetriever(BaseRetriever):
+    def __init__(self, chunks: list[dict[str, Any]], embeddings: list[list[float]], embedding_function) -> None:
+        if len(chunks) != len(embeddings):
+            raise ValueError(
+                "The number of chunks and embeddings must match"
+            )
+        self.chunks = chunks
+        self.embeddings = embeddings
+        self.embedding_function = embedding_function
+
+    @staticmethod
+    def _cosine_similarity(
+            first: list[float],
+            second: list[float],
+    ) -> float:
+        return sum(
+            left * right
+            for left, right in zip(first, second)
+        )
 
     async def retrieve(
         self,
         query: str,
         limit: int = 5,
+        thr: float = 0.5,
     ) -> list[DocumentChunk]:
-        results = await self.vector_store.search(query_text=query, n_results=limit)
-        #print('results: \n', results)
-        return [
-            DocumentChunk(
-                id=res["id"],
-                content=res["document"],
-                source=res["source"],
-                #metadata=item.get("metadata", {}),
-                score=res["score"],
-            )
-            for res in results
-        ]
+        query_embeddings = (
+            await self.embedding_function.embed_documents([query])
+        )
+        if not query_embeddings:
+            raise ValueError("Failed to create query embedding")
+        query_embedding = query_embeddings[0]
 
+        results = []
+
+        for chunk, embedding in zip(self.chunks, self.embeddings):
+            metadata = dict(chunk["metadata"])
+
+            score = self._cosine_similarity(
+                query_embedding,
+                embedding,
+            )
+
+            if thr is not None and score < thr:
+                continue
+
+            results.append(DocumentChunk(
+                id=chunk["id"],
+                content=chunk["text"],
+                metadata=metadata,
+                score=score,
+            ))
+
+        results.sort(
+            key=lambda result: result.score,
+            reverse=True,
+        )
+
+        return results[:limit]

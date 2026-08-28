@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SiGMA Agenda Assistant</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header>
+      <p class="eyebrow">SiGMA Malta 2026</p>
+      <h1>Agenda assistant</h1>
+      <p class="subtitle">Ask about sessions, speakers, rooms, or exhibitors. Answers are based only on the supplied agenda.</p>
+    </header>
+    <section id="chat" class="chat" aria-live="polite">
+      <div id="empty-state" class="empty-state">
+        <strong>What would you like to know?</strong>
+        <span>Try: “Who is speaking about LLMs?” or “Which exhibitors are in payments?”</span>
+      </div>
+    </section>
+    <form id="question-form" class="composer">
+      <label class="sr-only" for="question">Ask a question</label>
+      <textarea id="question" rows="2" maxlength="1000" placeholder="Ask about the agenda..." required></textarea>
+      <button id="send" type="submit">Ask</button>
+    </form>
+    <p id="status" class="status" role="status"></p>
+  </main>
+  <template id="message-template"><article class="message"><p class="message-role"></p><div class="message-content"></div></article></template>
+  <script src="/static/app.js"></script>
+</body>
+</html>

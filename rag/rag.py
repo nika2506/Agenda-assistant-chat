@@ -9,7 +9,39 @@ class RAGService:
         self.retriever = retriever
         self.llm = llm
 
-    async def get_response(self, question: str, limit: int = 5) -> RAGResponse:
+    async def get_response(
+            self,
+            question: str,
+            limit: int = 5,
+    ) -> RAGResponse:
+        chunks = await self.retriever.retrieve(
+            question,
+            limit=limit,
+        )
+
+        if not chunks:
+            return RAGResponse(
+                answer="I couldn't find that in the provided agenda data.",
+                chunks=[],
+                prompt="",
+            )
+
+        prompt = self._build_prompt(question, chunks)
+
+        await self.llm.connect()
+
+        try:
+            answer = await self.llm.generate(prompt)
+        finally:
+            await self.llm.close()
+
+        return RAGResponse(
+            answer=answer,
+            chunks=chunks,
+            prompt=prompt,
+        )
+
+    async def get_response2(self, question: str, limit: int = 5) -> RAGResponse:
         chunks = await self.retriever.retrieve(question, limit=limit)
         prompt = self._build_prompt(question, chunks)
         print('prompt: \n', prompt)
@@ -38,7 +70,7 @@ class RAGService:
         chunks: list[DocumentChunk],
     ) -> str:
         context = "\n\n".join(
-            f"[Source: {chunk.source}]\n{chunk.content}"
+            f"[Source: {chunk.id}]\n{chunk.content}"
             for chunk in chunks
         )
 

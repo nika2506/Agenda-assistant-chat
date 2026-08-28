@@ -1,3 +1,5 @@
 .idea/
 chroma/
 data/
+__pycache__/
+*.py[cod]

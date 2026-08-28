@@ -1,6 +1,5 @@
 from chunking.load_from_file import load_agenda_chunks
 from vectorstores.chroma import ChromaBackend
-from vectorstores.factory import VectorDBFactory
 from embeddings.local import LocalOllamaEmbeddingFunction
 import asyncio
 
@@ -14,16 +13,17 @@ async def test_vector_search():
 
 
     db_config = {'host': "localhost",
-                 'port':8000}
+                 'port': 8000}
     config = {
-        "collection": "sigma_agenda",
+        "collection": "sigma_agenda1",
         "metric": "cosine",
         "top_k": 5,
         "thr": None
     }
-    embedding_config = {'url': ''}
-    embedder = LocalOllamaEmbeddingFunction(model='nomic-embed-text:latest', embedding_config=embedding_config)
+    embedding_config = {'url': 'http://localhost:11434'}
+    embedder = LocalOllamaEmbeddingFunction(model='nomic-embed-text', embedding_config=embedding_config)
     embeddings = await embedder.embed_documents(documents)
+    print(embeddings)
 
     vector_client = ChromaBackend(db_config)
 
