@@ -2,7 +2,7 @@ import httpx
 import asyncio
 from typing import Any
 import logging
-from vectorstore.services.embeddings.base import BaseEmbeddingFunction
+from embeddings.base import BaseEmbeddingFunction
 
 LOG = logging.getLogger(__name__)
 
@@ -74,3 +74,8 @@ class LocalOllamaEmbeddingFunction(BaseEmbeddingFunction):
                     await asyncio.sleep(1 * (attempt + 1))
                     continue
                 raise
+
+    async def close(self) -> None:
+        if self._client is not None:
+            await self._client.aclose()
+            self._client = None

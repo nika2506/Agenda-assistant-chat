@@ -12,7 +12,7 @@ from typing import Any
 import chromadb
 import math
 
-from vectorstore.services.backends.base import VectorBackend
+from vectorstores.base import VectorBackend
 
 LOG = logging.getLogger(__name__)
 

@@ -2,21 +2,6 @@ from rag.base import BaseChatModel
 import requests
 import httpx
 
-class OpenAIChatModel(BaseChatModel): #TODO: do it later
-    def __init__(self, client, model_name: str):
-        self.client = client
-        self.model_name = model_name
-
-    async def generate(self, prompt: str) -> str:
-        try:
-            response = await self.client.responses.create(
-                model=self.model_name,
-                input=prompt,
-            )
-            return response.output_text
-
-        except Exception as e:
-            return f"Error: {e}"
 
 class LlamaLocalChatModel(BaseChatModel):
     def __init__(self, url: str, model_name: str, timeout: float = 100.0):

@@ -1,9 +1,8 @@
-import requests
 from rag.base import BaseRetriever, DocumentChunk
-from vectorstores.base import AsyncVectorClient
+from vectorstores.chroma import ChromaBackend
 
 class VectorStoreRetriever(BaseRetriever):
-    def __init__(self, vector_store: AsyncVectorClient):
+    def __init__(self, vector_store: ChromaBackend):
         self.vector_store = vector_store
 
     async def retrieve(
