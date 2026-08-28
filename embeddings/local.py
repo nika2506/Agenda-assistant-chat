@@ -55,12 +55,10 @@ class LocalOllamaEmbeddingFunction(BaseEmbeddingFunction):
                 response.raise_for_status()
                 data = response.json()
                 embeddings = data.get("embeddings")
-                if (
-                        not embeddings
-                        or not isinstance(embeddings, list) and all(
-                            isinstance(inner, list) and all(isinstance(x, float) for x in inner)
-                            for inner in embeddings
-                        )
+                if not isinstance(embeddings, list) or not embeddings or not all(
+                    isinstance(inner, list)
+                    and all(isinstance(value, (int, float)) for value in inner)
+                    for inner in embeddings
                 ):
                     if attempt < retries - 1:
                         await asyncio.sleep(1 * (attempt + 1))

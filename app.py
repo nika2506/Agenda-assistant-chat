@@ -7,11 +7,10 @@ import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-import asyncio
 from contextlib import asynccontextmanager
 
 import httpx
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -24,11 +23,6 @@ from embeddings.local import LocalOllamaEmbeddingFunction
 
 ROOT = Path(__file__).parent
 DATA_PATH = ROOT / "data" / "sigma_agenda.json"
-STOP_WORDS = {
-    "a", "an", "and", "are", "at", "can", "do", "for", "from", "how", "i",
-    "in", "is", "me", "of", "on", "or", "the", "to", "what", "when", "where",
-    "which", "who", "with", "will", "about", "does", "there", "any", "tell",
-}
 ollama_url=os.getenv("OLLAMA_URL", "http://localhost:11434")
 embedding_model_name = os.getenv("EMBEDDING_OLLAMA_MODEL", "nomic-embed-text")
 retriever_model_name=os.getenv("OLLAMA_MODEL", "llama3.2:3b")
@@ -67,7 +61,11 @@ class AskResponse(BaseModel):
 async def make_chunks_and_embeddings(embedder):
     chunks = load_agenda_chunks(DATA_PATH)
     texts = [chunk["text"] for chunk in chunks]
-    embeddings = await embedder.embed_documents(texts)
+    embeddings = []
+    for start in range(0, len(texts), 16):
+        embeddings.extend(
+            await embedder.embed_documents(texts[start:start + 16], retries=1)
+        )
     return chunks, embeddings
 
 
@@ -77,34 +75,41 @@ async def lifespan(app: FastAPI):
         model=embedding_model_name,
         embedding_config={
             "url": ollama_url,
-            "timeout": 120,
+            "timeout": 60,
         },
     )
 
     try:
-        chunks, embeddings = await make_chunks_and_embeddings(
-            embedder
-        )
-
-        retriever = InMemoryRetriever(
-            chunks=chunks,
-            embeddings=embeddings,
-            embedding_function=embedder,
-        )
-
-        model = LlamaLocalChatModel(
-            url=ollama_url,
-            model_name=retriever_model_name,
-        )
-
-        app.state.rag_service = RAGService(
-            retriever=retriever,
-            llm=model,
-        )
-
-        app.state.source_count = len(chunks)
+        # Keep the UI available if Ollama is unavailable; /api/ask reports a
+        # service error instead of making the entire web app fail at startup.
+        app.state.source_count = len(load_agenda_chunks(DATA_PATH))
         app.state.model_name = retriever_model_name
+        app.state.rag_service = None
+        app.state.initialization_error = None
 
+        try:
+            chunks, embeddings = await make_chunks_and_embeddings(
+                embedder
+            )
+            retriever = InMemoryRetriever(
+                chunks=chunks,
+                embeddings=embeddings,
+                embedding_function=embedder,
+            )
+            model = LlamaLocalChatModel(
+                url=ollama_url,
+                model_name=retriever_model_name,
+                timeout=120,
+            )
+            app.state.rag_service = RAGService(
+                retriever=retriever,
+                llm=model,
+            )
+        except (httpx.HTTPError, RuntimeError, ValueError):
+            app.state.initialization_error = (
+                "Could not initialize local agenda search. Start Ollama and pull "
+                f"the configured embedding model ({embedding_model_name})."
+            )
         yield
     finally:
         await embedder.close()
@@ -150,7 +155,12 @@ async def ask(
             detail="Enter a question before sending it.",
         )
 
-    rag_service: RAGService = request.app.state.rag_service
+    rag_service: RAGService | None = request.app.state.rag_service
+    if rag_service is None:
+        raise HTTPException(
+            status_code=503,
+            detail=request.app.state.initialization_error or "Agenda search is unavailable.",
+        )
 
     try:
         response = await rag_service.get_response(

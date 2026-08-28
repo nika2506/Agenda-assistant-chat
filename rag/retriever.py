@@ -21,10 +21,15 @@ class InMemoryRetriever(BaseRetriever):
             first: list[float],
             second: list[float],
     ) -> float:
-        return sum(
+        dot_product = sum(
             left * right
             for left, right in zip(first, second)
         )
+        first_norm = sum(value * value for value in first) ** 0.5
+        second_norm = sum(value * value for value in second) ** 0.5
+        if not first_norm or not second_norm:
+            return 0.0
+        return dot_product / (first_norm * second_norm)
 
     async def retrieve(
         self,

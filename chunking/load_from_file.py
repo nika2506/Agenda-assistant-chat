@@ -86,7 +86,4 @@ def load_agenda_chunks(file_path: str | Path) -> list[dict[str, Any]]:
             },
         })
 
-    #texts = [chunk["text"] for chunk in chunks]
-    #metadatas = [chunk["metadata"] for chunk in chunks]
-    #ids = [chunk["id"] for chunk in chunks]
     return chunks
