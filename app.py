@@ -10,7 +10,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from chunking.load_from_file import load_agenda_chunks
+from chunking.load_agenda_chunks import load_agenda_chunks
 from rag.models import LlamaLocalChatModel
 from rag.retriever import InMemoryRetriever
 from rag.rag import RAGService

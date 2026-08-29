@@ -11,6 +11,7 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ollama pull llama3.2:3b
+ollama pull nomic-embed-text
 uvicorn app:app --reload
 ```
 
@@ -18,23 +19,39 @@ Open `http://127.0.0.1:8000`. Ollama must be running locally. The default chat m
 
 ## Architecture and AI design
 
-The FastAPI server loads `data/sigma_agenda.json` into one source per event, session, and exhibitor. `AgendaRetriever` uses lightweight keyword-overlap retrieval to select the five relevant source records. The server sends only those records plus the question to the local Ollama model, with a strict prompt requiring that every fact come from the supplied excerpts and that unsupported questions receive a fixed response.
+The FastAPI server loads `data/sigma_agenda.json` and creates one semantic chunk for the event overview, each session, and each exhibitor. During application startup, `LocalOllamaEmbeddingFunction` generates embeddings for these chunks in batches of 16. Both the chunks and their embeddings are kept in memory, so the application does not require a vector database.
 
-This is retrieval-augmented generation rather than full-dataset stuffing: it reduces the context sent to the model, keeps the source cards useful, and will scale more comfortably if the agenda grows. Keyword retrieval is appropriate for this small structured dataset and avoids an embedding download/indexing service.
+For each question, `InMemoryRetriever` generates a query embedding and compares it with the stored chunk embeddings using cosine similarity. Results below the configured similarity threshold are discarded, and the five highest-scoring chunks are passed to `RAGService`.
 
-`ChatModel` is the thin provider interface. `OllamaChatModel` is its local, no-cost implementation; a hosted or different local provider only needs another `answer(prompt)` implementation.
+RAGService builds a grounded prompt containing only the retrieved chunks and the user’s question. It then sends the prompt to the local Ollama chat model. The prompt requires the model to answer exclusively from the supplied context and to state when the available agenda data does not contain an answer.
 
-The browser UI includes an empty state, a request-in-progress message, expandable grounding sources, and an error state for unavailable models or backend failures.
+The application uses response caching to reduce redundant model calls. Normalized exact-match questions can reuse a cached response without calling either model again. Near-duplicate questions are detected by comparing query embeddings with cached query embeddings. When their similarity exceeds a high threshold, the cached response is reused, avoiding another chat-model call.
+
+This is retrieval-augmented generation rather than full-dataset stuffing. It reduces the amount of context sent to the chat model, provides relevant grounding sources for the UI, and separates retrieval from answer generation. In-memory cosine search is appropriate for this small dataset while keeping the implementation independent of an external vector database.
+
+BaseEmbeddingFunction, BaseRetriever, and BaseChatModel define the main provider interfaces. `LocalOllamaEmbeddingFunction`, `InMemoryRetriever`, and `LlamaLocalChatModel` provide the current local implementations. Other embedding models, retrievers, vector stores, or chat providers can be added by implementing the corresponding interfaces.
+
+FastAPI’s lifespan handler initializes the embedder, generates the agenda embeddings, constructs the retriever, and stores the resulting `RAGService` in application state. If Ollama is unavailable during initialization, the static browser UI remains accessible and /api/ask returns a service-unavailable error instead of preventing the entire application from starting.
+
+The browser UI includes an empty state, a request-in-progress message, expandable grounding sources, and an error state for unavailable models, initialization failures, or other backend errors.
 
 ## Known limitations
 
-- Keyword retrieval does not understand synonyms as well as embedding retrieval and can miss poorly worded questions.
-- Prompting strongly constrains the model, but an LLM is probabilistic; source records are displayed so answers can be checked.
-- Responses are returned after generation rather than token-streamed.
-- There are no conversational follow-up memories; each question is evaluated independently.
+- Agenda embeddings are stored only in memory and must be regenerated whenever the application restarts.
+- In-memory retrieval performs a linear comparison against every chunk. This is appropriate for the current dataset but will not scale as efficiently as a vector database for large collections.
+- The application depends on a running Ollama instance with the configured embedding and chat models already downloaded.
+- Prompting strongly constrains the model, but an LLM remains probabilistic. Retrieved source records are displayed so that users can verify generated answers.
+- Responses are returned only after generation completes rather than being token-streamed.
+- There is no conversational memory. Every question is evaluated independently, except when a cached answer is reused.
+- If initialization fails because Ollama is unavailable, the application does not automatically rebuild the RAG service after Ollama becomes available; the server must currently be restarted.
 
 ## With more time
 
-- Add hybrid/vector retrieval and retrieval-quality tests.
-- Stream Ollama tokens to the interface.
-- Add automated API and browser tests, source-level answer validation, and request telemetry.
+- Add hybrid retrieval that combines semantic similarity with structured filters for dates, tracks, rooms, speakers, session IDs, and exhibitor categories.
+- Build a retrieval evaluation set and measure metrics such as Recall@K, MRR, answer correctness, faithfulness, and citation accuracy.
+- Persist precomputed agenda embeddings and invalidate them using dataset and embedding-model hashes, avoiding regeneration on every application restart.
+- Improve semantic caching with TTL and size limits, cache hit telemetry, and safeguards against reusing answers for similar questions containing different dates, times, names, or session IDs.
+- Add background initialization retries and readiness reporting so the RAG service can recover automatically if Ollama becomes available after application startup.
+- Stream Ollama tokens to the interface and support request cancellation and generation timeouts.
+- Add automated unit, API, integration, and browser tests covering retrieval, caching, Ollama failures, response validation, and application lifecycle behavior.
+- Add observability for retrieval scores, cache hit rates, embedding and generation latency, error rates, and model usage while avoiding the logging of sensitive query content.

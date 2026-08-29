@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Any, Tuple
+from typing import Any
 
 
 def load_agenda_chunks(file_path: str | Path) -> list[dict[str, Any]]:

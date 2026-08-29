@@ -8,7 +8,7 @@ LOG = logging.getLogger(__name__)
 
 
 model_to_dimension = {
-        "nomic-embed-text:latest": 768,
+        "nomic-embed-text": 768,
         "nomic-embed-text-v2-moe:latest": 768
     }
 

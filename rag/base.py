@@ -9,12 +9,6 @@ class CacheEntry:
     embedding: list[float]
     response: RAGResponse
 
-
-@dataclass
-class RAGModelConfig:
-    model_name: str
-    url: str
-
 @dataclass
 class DocumentChunk:
     id: str
@@ -40,17 +34,17 @@ class BaseRetriever(ABC):
         raise NotImplementedError
 
     async def get_query_embedding(self, query: str) -> list[float]:
-        ...
+        raise NotImplementedError
 
 class BaseChatModel(ABC):
     @abstractmethod
     async def connect(self) -> None:
-        ...
+        raise NotImplementedError
 
     @abstractmethod
     async def close(self) -> None:
-        ...
+        raise NotImplementedError
 
     @abstractmethod
     async def generate(self, prompt: str) -> str:
-        ...
+        raise NotImplementedError

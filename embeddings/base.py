@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from typing import Any, Protocol
 import logging
 
@@ -25,13 +25,13 @@ class BaseEmbeddingFunction(Protocol):
 
     @abstractmethod
     async def _resolve_dimension(self) -> int:
-        ...
+        raise NotImplementedError
 
     @property
     @abstractmethod
     def name(self) -> str:
-        ...
+        raise NotImplementedError
 
     @abstractmethod
     async def embed_documents(self, documents: list[str]) -> list[list[float]]:
-        ...
+        raise NotImplementedError
