@@ -1,10 +1,7 @@
 import httpx
 import asyncio
 from typing import Any
-import logging
 from embeddings.base import BaseEmbeddingFunction
-
-LOG = logging.getLogger(__name__)
 
 
 model_to_dimension = {
