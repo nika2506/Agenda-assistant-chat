@@ -1,30 +1,49 @@
 from rag.base import BaseChatModel, RAGResponse, BaseRetriever, DocumentChunk
+from rag.semantic_cache import SemanticResponseCache
+
 
 class RAGService:
     def __init__(
         self,
         retriever: BaseRetriever,
         llm: BaseChatModel,
-    ):
+    ) -> None:
         self.retriever = retriever
         self.llm = llm
 
+        self.cache = SemanticResponseCache(
+            max_size=100,
+            similarity_threshold=0.97,
+        )
+
     async def get_response(
-            self,
-            question: str,
-            limit: int = 5,
+        self,
+        question: str,
+        limit: int = 5,
     ) -> RAGResponse:
+        # Exact match: we don't even call the embedding model.
+        cached_response = await self.cache.get_exact(question)
+        if cached_response is not None:
+            return cached_response
+
+        # We need to get the request embedding for semantic cache.
+        query_embedding = (
+            await self.retriever.get_query_embedding(question)
+        )
+
+        # Similar question: embedding is called, but LLM is not called anymore.
+        cached_response = await self.cache.get_similar(
+            query_embedding
+        )
+
+        if cached_response is not None:
+            return cached_response
+
         chunks = await self.retriever.retrieve(
             question,
             limit=limit,
+            query_embedding=query_embedding,
         )
-
-        if not chunks:
-            return RAGResponse(
-                answer="I couldn't find that in the provided agenda data.",
-                chunks=[],
-                prompt="",
-            )
 
         prompt = self._build_prompt(question, chunks)
 
@@ -35,40 +54,22 @@ class RAGService:
         finally:
             await self.llm.close()
 
-        return RAGResponse(
+        response = RAGResponse(
             answer=answer,
             chunks=chunks,
             prompt=prompt,
         )
 
-    async def get_response2(self, question: str, limit: int = 5) -> RAGResponse:
-        chunks = await self.retriever.retrieve(question, limit=limit)
-        prompt = self._build_prompt(question, chunks)
-        print('prompt: \n', prompt)
-        await self.llm.connect()
-        answer = await self.llm.generate(prompt)
-        await self.llm.close()
-
-        return RAGResponse(
-            answer=answer,
-            chunks=chunks,
-            prompt=prompt,
+        await self.cache.put(
+            query=question,
+            query_embedding=query_embedding,
+            response=response,
         )
 
-    async def answer(self, question: str, limit: int = 5):
-        rag_response = await self.get_response(question, limit)
-        filenames = list(dict.fromkeys([chunk.id.rsplit("_", 1)[0] for chunk in rag_response.chunks]))
+        return response
 
-        answer = (f"Answer:\n{rag_response.answer}\n"
-                  f"For more detailed information, please see the files:\n"
-                  f"{filenames}")
-        return answer
-
-    def _build_prompt(
-        self,
-        question: str,
-        chunks: list[DocumentChunk],
-    ) -> str:
+    @staticmethod
+    def _build_prompt(question: str, chunks: list[DocumentChunk]) -> str:
         context = "\n\n".join(
             f"[Source: {chunk.id}]\n{chunk.content}"
             for chunk in chunks

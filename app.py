@@ -1,11 +1,7 @@
 """Grounded agenda question-answering web application."""
 from __future__ import annotations
 
-import json
 import os
-import re
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from pathlib import Path
 from contextlib import asynccontextmanager
 
@@ -28,21 +24,6 @@ embedding_model_name = os.getenv("EMBEDDING_OLLAMA_MODEL", "nomic-embed-text")
 retriever_model_name=os.getenv("OLLAMA_MODEL", "llama3.2:3b")
 
 
-@dataclass
-class Source:
-    id: str
-    label: str
-    content: str
-    keywords: set[str]
-
-
-def terms(value: str) -> set[str]:
-    return {
-        word for word in re.findall(r"[a-z0-9]+", value.lower())
-        if len(word) > 1 and word not in STOP_WORDS
-    }
-
-
 class AskRequest(BaseModel):
     question: str = Field(min_length=1, max_length=1000)
 
@@ -58,13 +39,13 @@ class AskResponse(BaseModel):
     sources: list[SourceResponse]
 
 
-async def make_chunks_and_embeddings(embedder):
+async def make_chunks_and_embeddings(embedder, batch_size=16):
     chunks = load_agenda_chunks(DATA_PATH)
     texts = [chunk["text"] for chunk in chunks]
     embeddings = []
-    for start in range(0, len(texts), 16):
+    for start in range(0, len(texts), batch_size):
         embeddings.extend(
-            await embedder.embed_documents(texts[start:start + 16], retries=1)
+            await embedder.embed_documents(texts[start:start + batch_size])
         )
     return chunks, embeddings
 
@@ -113,9 +94,6 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         await embedder.close()
-
-
-#app = FastAPI(lifespan=lifespan)
 
 
 app = FastAPI(title="SiGMA Agenda Assistant", lifespan=lifespan)

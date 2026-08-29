@@ -1,16 +1,6 @@
 import json
 from pathlib import Path
 from typing import Any, Tuple
-import os
-from dataclasses import dataclass
-
-
-@dataclass
-class Source:
-    id: str
-    label: str
-    content: str
-    keywords: set[str]
 
 
 def load_agenda_chunks(file_path: str | Path) -> list[dict[str, Any]]:

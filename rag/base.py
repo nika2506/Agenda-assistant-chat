@@ -4,6 +4,13 @@ from typing import Any
 
 
 @dataclass
+class CacheEntry:
+    query: str
+    embedding: list[float]
+    response: RAGResponse
+
+
+@dataclass
 class RAGModelConfig:
     model_name: str
     url: str
@@ -28,8 +35,12 @@ class BaseRetriever(ABC):
         self,
         query: str,
         limit: int = 5,
+        query_embedding: list[float] | None = None,
     ) -> list[DocumentChunk]:
         raise NotImplementedError
+
+    async def get_query_embedding(self, query: str) -> list[float]:
+        ...
 
 class BaseChatModel(ABC):
     @abstractmethod
