@@ -6,12 +6,60 @@ A grounded question-answering interface for the supplied fictional SiGMA Malta 2
 
 Prerequisites: Python 3.11+ and [Ollama](https://ollama.com/).
 
+## Windows
+
+Install Ollama using the installer from the [Ollama](https://ollama.com/) download page.
+
+Then run the following commands in PowerShell:
+
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
+
 ollama pull llama3.2:3b
 ollama pull nomic-embed-text
+
+uvicorn app:app --reload
+```
+
+The Ollama Windows application normally starts the Ollama server automatically. If it is already running, do not run ollama serve separately.
+
+Open `http://127.0.0.1:8000`. Ollama must be running locally. The default chat model is `llama3.2:3b`; The default embedding model is `nomic-embed-text`; configure another pulled model with `OLLAMA_MODEL` and `EMBEDDING_OLLAMA_MODEL`. Set `OLLAMA_URL` when Ollama is not at `http://localhost:11434`.
+
+## Linux
+
+Install Ollama:
+
+```powershell
+curl -fsSL https://ollama.com/install.sh | sh
+```
+
+Create and activate the Python virtual environment:
+
+```powershell
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+```
+
+Download the required Ollama models:
+
+```powershell
+ollama pull llama3.2:3b
+ollama pull nomic-embed-text
+```
+
+If the Ollama service is not already running, start it in a separate terminal:
+
+```powershell
+ollama serve
+```
+
+Then start the FastAPI application:
+
+```powershell
+source .venv/bin/activate
 uvicorn app:app --reload
 ```
 
